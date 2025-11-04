@@ -1,0 +1,13 @@
+{
+  "name": "basic",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "client": "cd client && npm run dev",
+    "server": "cd server && npm start",
+    "model": "cd model_service; python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload",
+    "model:prod": "cd model_service; python -m uvicorn main:app --host 0.0.0.0 --port 8000",
+    "install:all": "cd client && npm install && cd ../server && npm install",
+    "dev": "echo \"Run services separately: npm run client, npm run server, npm run model\""
+  }
+}

@@ -1,0 +1,9 @@
+orig,dest,distance_km,duration_hr
+"Seattle,USA","Portland,USA",279.73659999999995,3.233055555555556
+"hyderabad,India","bengaluru,India",562.85,9.0615
+"hyderabad,India","mumbai,India",723.3566,12.839444444444444
+"Mumbai,India","Delhi,India",1359.5272,22.68311111111111
+"seattle,India","portland,India",166.76579999999998,1.878861111111111
+"hyderabad,India","delhi,India",1711.2728,26.51794444444445
+"hyderabad,India","Mumbai,India",723.3566,12.839444444444444
+"mumbai,India","chennai,India",1314.578,22.374222222222222
