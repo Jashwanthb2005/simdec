@@ -7,3 +7,7 @@ orig,dest,distance_km,duration_hr
 "hyderabad,India","delhi,India",1711.2728,26.51794444444445
 "hyderabad,India","Mumbai,India",723.3566,12.839444444444444
 "mumbai,India","chennai,India",1314.578,22.374222222222222
+"Hyderabad,India","delhi,India",1711.273,26.516916666666663
+"Hyderabad,India","Chennai,India",627.5867,10.776750000000002
+"chennai,India","lucknow,India",1965.959,32.84433333333334
+"lucknow,India","Delhi,India",528.5313000000001,6.8365277777777775

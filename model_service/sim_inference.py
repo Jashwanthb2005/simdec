@@ -69,20 +69,53 @@ def _get_mapbox_coords(place_name, api_key):
     Helper function to turn a place name (e.g., "Bengaluru, India") 
     into coordinates (e.g., "77.59,12.97").
     """
+    if not api_key or api_key == "pk.YOUR_DEFAULT_PUBLIC_TOKEN_HERE":
+        print(f"DEBUG (Geocode): API key is missing or placeholder for '{place_name}'")
+        return None
+        
     url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{requests.utils.quote(place_name)}.json"
     params = {
         "access_token": api_key,
         "limit": 1
     }
     try:
-        r = requests.get(url, params=params, timeout=6).json()
-        coords = r['features'][0]['center']
+        response = requests.get(url, params=params, timeout=6)
+        response.raise_for_status()  # Raise an exception for bad status codes
+        r = response.json()
+        
+        # Validate response structure
+        if 'features' not in r or not r.get('features'):
+            print(f"DEBUG (Geocode): No features found for '{place_name}' in response: {r}")
+            return None
+        
+        if len(r['features']) == 0:
+            print(f"DEBUG (Geocode): Empty features array for '{place_name}'")
+            return None
+        
+        coords = r['features'][0].get('center')
+        if not coords or len(coords) < 2:
+            print(f"DEBUG (Geocode): Invalid coordinates for '{place_name}': {coords}")
+            return None
+        
         # Mapbox returns [lon, lat], format for matrix is "lon,lat"
-        lon, lat = coords[0], coords[1]
+        lon, lat = float(coords[0]), float(coords[1])
+        
+        # Validate coordinates are reasonable (not NaN or None)
+        if math.isnan(lon) or math.isnan(lat) or lon is None or lat is None:
+            print(f"DEBUG (Geocode): Invalid coordinate values for '{place_name}': lon={lon}, lat={lat}")
+            return None
+        
         print(f"DEBUG (Geocode): Converted '{place_name}' -> Coords: {lon},{lat}")
         return f"{lon},{lat}"
+    except requests.exceptions.RequestException as e:
+        print(f"DEBUG (Geocode): Request failed for '{place_name}'. Error: {e}")
+        return None
+    except (KeyError, IndexError, ValueError, TypeError) as e:
+        print(f"DEBUG (Geocode): Failed to parse response for '{place_name}'. Error: {e}")
+        print(f"DEBUG (Geocode): Response: {r if 'r' in locals() else 'No response'}")
+        return None
     except Exception as e:
-        print(f"DEBUG (Geocode): FAILED for '{place_name}'. Error: {e}")
+        print(f"DEBUG (Geocode): Unexpected error for '{place_name}'. Error: {e}")
         return None
 
 def fetch_distance_cached(orig, dest, api_key):
@@ -130,14 +163,48 @@ def fetch_distance_cached(orig, dest, api_key):
     try:
         r = requests.get(matrix_url, params=params, timeout=8).json()
         
+        # Check for API errors
         if r.get('code') != 'Ok':
-            print(f"DEBUG (Distance): Mapbox API returned an error: {r.get('message', 'Unknown error')}")
-            raise Exception(r.get('message'))
-
-        dist_meters = r['distances'][0][1]
-        dist_km = dist_meters / 1000.0
-        dur_seconds = r['durations'][0][1]
-        dur_hours = dur_seconds / 3600.0
+            error_msg = r.get('message', 'Unknown error')
+            print(f"DEBUG (Distance): Mapbox API returned an error: {error_msg}")
+            raise Exception(error_msg)
+        
+        # Validate response structure
+        if 'distances' not in r or 'durations' not in r:
+            print(f"DEBUG (Distance): Mapbox API response missing distances/durations: {r}")
+            raise Exception("Invalid API response structure")
+        
+        # Check if distances/durations arrays exist and have valid data
+        if not r.get('distances') or len(r['distances']) == 0:
+            print(f"DEBUG (Distance): Mapbox API returned empty distances array")
+            raise Exception("Empty distances array")
+        
+        if not r.get('durations') or len(r['durations']) == 0:
+            print(f"DEBUG (Distance): Mapbox API returned empty durations array")
+            raise Exception("Empty durations array")
+        
+        # Safely extract distance and duration with None checks
+        try:
+            dist_meters = r['distances'][0][1] if len(r['distances'][0]) > 1 else None
+            dur_seconds = r['durations'][0][1] if len(r['durations'][0]) > 1 else None
+        except (IndexError, KeyError, TypeError) as e:
+            print(f"DEBUG (Distance): Error extracting distance/duration from response: {e}")
+            print(f"DEBUG (Distance): Response structure: distances={r.get('distances')}, durations={r.get('durations')}")
+            raise Exception(f"Could not extract distance/duration: {e}")
+        
+        # Check if values are None (can happen for impossible routes)
+        if dist_meters is None or dur_seconds is None:
+            print(f"DEBUG (Distance): Mapbox API returned None for distance/duration (route may not exist)")
+            raise Exception("Route distance/duration is None")
+        
+        # Convert to appropriate units
+        dist_km = float(dist_meters) / 1000.0
+        dur_hours = float(dur_seconds) / 3600.0
+        
+        # Validate converted values
+        if dist_km <= 0 or dur_hours <= 0:
+            print(f"DEBUG (Distance): Invalid distance/duration values: {dist_km} km, {dur_hours} hr")
+            raise Exception("Invalid distance or duration values")
         
         print(f"DEBUG (Distance): Live API SUCCESS. Distance = {dist_km:.1f} km, Duration = {dur_hours:.1f} hr")
         
@@ -150,6 +217,7 @@ def fetch_distance_cached(orig, dest, api_key):
         
     except Exception as e:
         print(f"DEBUG (Distance): Mapbox API call FAILED. Error: {e}")
+        print(f"DEBUG (Distance): Error type: {type(e).__name__}")
         
     print("DEBUG (Distance): Using random FALLBACK distance.")
     dist_fallback = float(np.random.uniform(300, 1500))
@@ -480,19 +548,27 @@ def infer_live(order_city, order_country, customer_city, customer_country, sales
     # 6. Get Actor's choice
     with torch.no_grad():
         st = torch.tensor(state_from_seq(seq), dtype=torch.float32).to(device)
-        probs_v, _ = actor(st)
+        probs_v, logits_v = actor(st)
+        probs_np = probs_v.cpu().numpy()[0]
         acts_v = torch.argmax(probs_v, dim=-1).cpu().numpy()
         actor_choice = modes[acts_v[0]]
+        
+        # Debug: Print actor's probabilities for all modes
+        print(f"\n--- Actor Policy Probabilities ---")
+        for i, m in enumerate(modes):
+            print(f"  {m:15s}: {probs_np[i]:.3f} ({'← SELECTED' if i == acts_v[0] else ''})")
+        print(f"---")
 
     print("---")
     print(f"✅ Simulator's Optimal Mode (best score): {best_mode} (Score={best_score:.3f})")
-    print(f"🤖 Actor's Learned Policy Choice:          {actor_choice}")
+    print(f"🤖 Actor's Learned Policy Choice:          {actor_choice} (Prob={probs_np[acts_v[0]]:.3f})")
     print("---")
     
     return {
         "best_mode_by_score": best_mode,
         "best_score": best_score,
         "actor_policy_choice": actor_choice,
+        "actor_probs": {modes[i]: float(probs_np[i]) for i in range(len(modes))},  # Add probabilities for debugging
         "per_mode_analysis": per_mode_results,
         "live_features": {"km": km, "ws": ws, "fi": fi, "weight": weight},
         "live_weights": live_weights

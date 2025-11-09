@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import NotificationBell from "../Notifications/NotificationBell";
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -19,6 +20,7 @@ export default function Navbar() {
           </Link>
 
           <div className="flex items-center gap-6">
+            <NotificationBell />
             <span className="text-sm text-gray-600">
               {user?.name} ({user?.role})
             </span>

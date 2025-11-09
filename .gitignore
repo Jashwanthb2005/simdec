@@ -1,0 +1,111 @@
+# OS & IDE junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
+
+# Environment variables
+# .env
+.env.local
+.env.development
+.env.production
+
+# Dependency folders
+node_modules/
+**/node_modules/
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Build & dist outputs
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+venv/
+.env/
+env/
+.venv/
+
+# Cache & temp
+.cache/
+tmp/
+*.bak
+*.swp
+
+
+# API / dataset cache
+
+
+# Logs
+logs/
+*.log
+nohup.out
+
+# Frontend
+client/node_modules/
+client/.vite/
+client/.next/
+client/.cache/
+client/dist/
+client/.eslintcache
+client/.parcel-cache
+client/.turbo/
+
+# Backend
+server/node_modules/
+server/logs/
+server/uploads/
+
+
+# Python model service
+model_service/__pycache__/
+
+
+model_service/*.log
+
+# OS-specific trash
+ehthumbs.db
+Icon?
+
+ADMIN_LOGIN_GUIDE.md
+IMPLEMENTATION_GUIDE.md
+PROJECT_STATUS.md
+MONGODB_FIX.md
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+SECURITY.md
+LICENSE.md
+CHANGELOG.md
+CODE_OF_CONDUCT.md
+SECURITY.md
+LICENSE.md
+CHANGELOG.md
+IMPLEMENTATION_VERIFICATION.md
+STYLING_GUIDE.md
+TESTING_GUIDE.md
+PERFORMANCE_TUNING.md
+BEST_PRACTICES.md
+TROUBLESHOOTING.md
+FAQ.md
+ROADMAP.md
+ARCHITECTURE.md
+DESIGN_DOCUMENTATION.md
+IMPLEMENTATION_COMPLETE.md
+GLOBE_VISUALIZATION.md
+
+MAPBOX_INTEGRATION.md
+OPEN_METEO_INTEGRATION.md
+EIA_FUEL_INTEGRATION.md
+EIA_FUEL_API_KEY.md
+EIA_FUEL_API_KEY.md
+
+FIXES_APPLIED.md
+MAPBOX_SETUP.md
+QUICK_START_GUIDE.md
+SHIPMENT_APPROVAL_WORKFLOW.md
+
+WIDGET_FIXES.md

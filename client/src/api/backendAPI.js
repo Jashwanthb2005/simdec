@@ -48,7 +48,11 @@ export const shipmentAPI = {
   create: (data) => api.post("/api/shipments/create", data),
   getAll: (params) => api.get("/api/shipments/all", { params }),
   getById: (id) => api.get(`/api/shipments/${id}`),
-  approve: (id, override = null) => api.post(`/api/shipments/${id}/approve`, override),
+  approve: (id, override = null) => {
+    // Send empty object instead of null to avoid JSON parsing errors
+    const body = override || {};
+    return api.post(`/api/shipments/${id}/approve`, body);
+  },
   addFeedback: (id, data) => api.post(`/api/shipments/${id}/feedback`, data),
   getStats: (params) => api.get("/api/shipments/stats/overview", { params }),
 };
@@ -61,6 +65,21 @@ export const adminAPI = {
   getModelStatus: () => api.get("/api/admin/model/status"),
   retrainModel: () => api.post("/api/admin/model/retrain"),
   getLogs: (params) => api.get("/api/admin/logs", { params }),
+};
+
+// Notification API
+export const notificationAPI = {
+  getAll: (params) => api.get("/api/notifications", { params }),
+  getUnreadCount: () => api.get("/api/notifications/unread/count"),
+  markAsRead: (id) => api.put(`/api/notifications/${id}/read`),
+  markAllAsRead: () => api.put("/api/notifications/read/all"),
+  delete: (id) => api.delete(`/api/notifications/${id}`),
+};
+
+// Reports API
+export const reportsAPI = {
+  generateWeekly: () => api.post("/api/reports/weekly"),
+  getReportData: (params) => api.get("/api/reports/data", { params }),
 };
 
 // Legacy inference API (for backward compatibility)

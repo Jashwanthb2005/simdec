@@ -4,6 +4,13 @@ import { shipmentAPI } from "../../api/backendAPI";
 import { useAuth } from "../../context/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { motion } from "framer-motion";
+import ShipmentSimulator from "./ShipmentSimulator";
+import RouteMap from "../Charts/RouteMap";
+import GlobeRouteMap from "../Charts/GlobeRouteMap";
+import LiveWeatherWidget from "../Widgets/LiveWeatherWidget";
+import StoredWeatherWidget from "../Widgets/StoredWeatherWidget";
+import WeatherDashboard3D from "../Widgets/WeatherDashboard3D";
+import FuelPriceWidget from "../Widgets/FuelPriceWidget";
 
 export default function ShipmentDetails() {
   const { id } = useParams();
@@ -106,7 +113,7 @@ export default function ShipmentDetails() {
           </button>
           <h1 className="text-3xl font-bold text-gray-900">Shipment Details</h1>
         </div>
-        {user?.role === "manager" && shipment.status === "pending" && (
+        {(user?.role === "manager" || user?.role === "admin") && shipment.status === "pending" && (
           <div className="flex gap-3">
             <button
               onClick={handleApprove}
@@ -206,11 +213,132 @@ export default function ShipmentDetails() {
         </motion.div>
       </div>
 
+      {/* Weather Data - Use stored weather data from shipment creation */}
+      {shipment.weatherData && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mb-8"
+        >
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">🌤️ Weather at Shipment Creation</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Origin Weather */}
+            {shipment.weatherData.origin && (
+              <StoredWeatherWidget
+                weather={shipment.weatherData.origin}
+                city={`${shipment.order_city || shipment.origin?.split(',')[0]?.trim() || "Origin"}, ${shipment.order_country || ""}`}
+                fetchedAt={shipment.weatherData.fetchedAt}
+              />
+            )}
+            
+            {/* Destination Weather */}
+            {shipment.weatherData.destination && (
+              <StoredWeatherWidget
+                weather={shipment.weatherData.destination}
+                city={`${shipment.customer_city || shipment.destination?.split(',')[0]?.trim() || "Destination"}, ${shipment.customer_country || ""}`}
+                fetchedAt={shipment.weatherData.fetchedAt}
+              />
+            )}
+          </div>
+          
+          {/* Show note if weather data is missing */}
+          {(!shipment.weatherData.origin || !shipment.weatherData.destination) && (
+            <p className="text-sm text-gray-500 mt-2">
+              {!shipment.weatherData.origin && !shipment.weatherData.destination 
+                ? "Weather data was not available at shipment creation time."
+                : "Partial weather data available (one city may be missing)."}
+            </p>
+          )}
+        </motion.div>
+      )}
+
+      {/* Fallback: Show live weather if stored data is not available */}
+      {!shipment.weatherData && shipment.order_city && shipment.customer_city && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mb-8"
+        >
+          <p className="text-sm text-gray-500 mb-4">
+            ⚠️ Weather data was not stored at shipment creation. Showing live weather (may be rate limited).
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <LiveWeatherWidget
+              city={
+                shipment.order_city 
+                  ? `${shipment.order_city}${shipment.order_country ? `, ${shipment.order_country}` : ''}`
+                  : (shipment.origin ? shipment.origin.split(',')[0].trim() : null)
+              }
+              lat={shipment.latitude || shipment.originCoords?.lat}
+              lon={shipment.longitude || shipment.originCoords?.lng}
+            />
+            <LiveWeatherWidget
+              city={
+                shipment.customer_city 
+                  ? `${shipment.customer_city}${shipment.customer_country ? `, ${shipment.customer_country}` : ''}`
+                  : (shipment.destination ? shipment.destination.split(',')[0].trim() : null)
+              }
+              lat={shipment.destCoords?.lat}
+              lon={shipment.destCoords?.lng}
+            />
+          </div>
+        </motion.div>
+      )}
+
+      {/* Fuel Price Widget */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <FuelPriceWidget 
+          fuelIndex={shipment.fuelIndex || shipment.aiRecommendation?.liveFeatures?.fi} 
+        />
+      </div>
+
+      {/* Route Map - 3D Globe Visualization */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="bg-gray-900 rounded-xl p-6 shadow-lg mb-8"
+      >
+        <h3 className="text-lg font-semibold text-white mb-4">🌍 Global Route Visualization</h3>
+        <GlobeRouteMap
+          origin={shipment.origin}
+          destination={shipment.destination}
+          orderCity={shipment.order_city}
+          orderCountry={shipment.order_country}
+          customerCity={shipment.customer_city}
+          customerCountry={shipment.customer_country}
+          originCoords={shipment.originCoords}
+          destCoords={shipment.destCoords}
+        />
+      </motion.div>
+      
+      {/* Alternative: 2D Map View (commented out, uncomment if needed) */}
+      {/* <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="bg-white rounded-xl p-6 shadow-lg mb-8"
+      >
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">2D Map View</h3>
+        <RouteMap
+          origin={shipment.origin}
+          destination={shipment.destination}
+          orderCity={shipment.order_city}
+          orderCountry={shipment.order_country}
+          customerCity={shipment.customer_city}
+          customerCountry={shipment.customer_country}
+          originCoords={shipment.originCoords}
+          destCoords={shipment.destCoords}
+        />
+      </motion.div> */}
+
       {chartData.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: 0.4 }}
           className="bg-white rounded-xl p-6 shadow-lg mb-8"
         >
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Mode Comparison</h3>
@@ -227,6 +355,24 @@ export default function ShipmentDetails() {
           </ResponsiveContainer>
         </motion.div>
       )}
+
+      {/* What-If Simulator */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+        className="mb-8"
+      >
+        <ShipmentSimulator
+          initialData={{
+            order_city: shipment.order_city,
+            order_country: shipment.order_country,
+            customer_city: shipment.customer_city,
+            customer_country: shipment.customer_country,
+            sales_per_customer: shipment.sales,
+          }}
+        />
+      </motion.div>
 
       <div className="bg-white rounded-xl p-6 shadow-lg mb-8">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Feedback</h3>

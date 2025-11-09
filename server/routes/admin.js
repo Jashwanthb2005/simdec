@@ -94,26 +94,39 @@ function setupAdminRoutes(db) {
   // Retrain AI model endpoint
   router.post("/model/retrain", authenticateToken, requireRole("admin"), async (req, res) => {
     try {
-      // In a real implementation, this would:
-      // 1. Collect feedback data from shipments
-      // 2. Trigger model retraining service
-      // 3. Monitor training progress
-      // 4. Deploy new model when ready
+      // Collect feedback data for retraining
+      const Feedback = require("../models/Feedback");
+      const feedbackModel = new Feedback(db);
       
+      const feedbackData = await feedbackModel.getFeedbackForRetraining();
       const shipments = await shipmentModel.getAll(1000, 0);
       const feedbackCount = shipments.reduce((count, s) => {
         return count + (s.feedback?.length || 0);
       }, 0);
 
+      // In a real implementation, this would:
+      // 1. Export feedback data to training format
+      // 2. Trigger model retraining service (e.g., call FastAPI training endpoint)
+      // 3. Monitor training progress
+      // 4. Deploy new model when ready
+      // 5. Mark feedback as processed
+
       // Log retraining action
-      console.log(`[${new Date().toISOString()}] Admin ${req.user.id} triggered model retraining with ${feedbackCount} feedback samples`);
+      console.log(`[${new Date().toISOString()}] Admin ${req.user.id} triggered model retraining`);
+      console.log(`  - Feedback samples: ${feedbackData.length}`);
+      console.log(`  - Total shipment feedback: ${feedbackCount}`);
+
+      // TODO: In production, trigger actual retraining pipeline
+      // await triggerRetrainingPipeline(feedbackData);
 
       res.json({
         message: "Model retraining initiated",
         status: "training",
-        feedbackSamples: feedbackCount,
+        feedbackSamples: feedbackData.length,
+        totalFeedback: feedbackCount,
         estimatedTime: "15-30 minutes",
         timestamp: new Date(),
+        note: "In production, this would trigger the actual retraining pipeline",
       });
     } catch (error) {
       console.error("Model retrain error:", error);

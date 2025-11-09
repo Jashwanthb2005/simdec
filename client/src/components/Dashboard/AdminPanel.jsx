@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
-import { adminAPI } from "../../api/backendAPI";
+import { useNavigate } from "react-router-dom";
+import { adminAPI, shipmentAPI } from "../../api/backendAPI";
 import { motion } from "framer-motion";
 
 export default function AdminPanel() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [stats, setStats] = useState({});
   const [modelStatus, setModelStatus] = useState(null);
+  const [pendingShipments, setPendingShipments] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -14,18 +17,32 @@ export default function AdminPanel() {
 
   const loadData = async () => {
     try {
-      const [usersRes, statsRes, modelRes] = await Promise.all([
+      const [usersRes, statsRes, modelRes, shipmentsRes] = await Promise.all([
         adminAPI.getUsers(),
         adminAPI.getStats(),
         adminAPI.getModelStatus(),
+        shipmentAPI.getAll({ limit: 100 }).catch(() => ({ data: { shipments: [] } })),
       ]);
       setUsers(usersRes.data.users || []);
       setStats(statsRes.data.stats || {});
       setModelStatus(modelRes.data);
+      const shipments = shipmentsRes.data?.shipments || [];
+      setPendingShipments(shipments.filter(s => s.status === "pending"));
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleApproveShipment = async (id) => {
+    try {
+      await shipmentAPI.approve(id);
+      alert("Shipment approved successfully!");
+      loadData();
+    } catch (error) {
+      console.error("Error approving shipment:", error);
+      alert("Failed to approve shipment: " + (error.response?.data?.error || error.message));
     }
   };
 
@@ -200,11 +217,92 @@ export default function AdminPanel() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      {/* Pending Shipments Section - Admins can also approve */}
+      {pendingShipments.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
+          className="bg-white rounded-xl shadow-lg overflow-hidden mb-8"
+        >
+          <div className="p-6 border-b flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Pending Shipment Approvals</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                As an Admin, you can approve shipments. Managers typically handle approvals.
+              </p>
+            </div>
+            <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">
+              {pendingShipments.length} pending
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Route</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">AI Mode</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Profit</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">CO₂</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {pendingShipments.slice(0, 5).map((shipment) => (
+                  <tr key={shipment._id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      {shipment.origin || `${shipment.order_city || 'N/A'}`} → {shipment.destination || `${shipment.customer_city || 'N/A'}`}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">
+                        {shipment.aiRecommendation?.mode || "N/A"}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-green-600 font-semibold">
+                      ₹{Math.round(shipment.aiRecommendation?.profit || 0)}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-red-600 font-semibold">
+                      {Math.round(shipment.aiRecommendation?.co2 || 0)} kg
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleApproveShipment(shipment._id)}
+                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => navigate(`/shipments/${shipment._id}`)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
+                        >
+                          View
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {pendingShipments.length > 5 && (
+            <div className="p-4 border-t text-center">
+              <button
+                onClick={() => navigate("/shipments")}
+                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+              >
+                View All {pendingShipments.length} Pending Shipments →
+              </button>
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
           className="bg-white rounded-xl shadow-lg p-6"
         >
           <h3 className="text-lg font-semibold text-gray-900 mb-4">System Health</h3>

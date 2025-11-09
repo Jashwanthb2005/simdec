@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { shipmentAPI } from "../../api/backendAPI";
 import { motion } from "framer-motion";
+import WeatherDashboard3D from "../Widgets/WeatherDashboard3D";
 
 export default function ManagerDashboard() {
   const navigate = useNavigate();
@@ -30,64 +31,115 @@ export default function ManagerDashboard() {
     }
   };
 
-  const handleApprove = async (id) => {
+  const handleApprove = async (id, overrideMode = null, overrideReason = null) => {
     try {
-      await shipmentAPI.approve(id);
+      if (overrideMode) {
+        await shipmentAPI.approve(id, { overrideMode, overrideReason });
+        alert("Shipment approved with override!");
+      } else {
+        await shipmentAPI.approve(id);
+        alert("Shipment approved successfully!");
+      }
       loadData();
     } catch (error) {
       console.error("Error approving shipment:", error);
+      alert("Failed to approve shipment: " + (error.response?.data?.error || error.message));
     }
   };
 
   const handleGenerateReport = async () => {
     try {
-      const pendingCount = shipments.filter((s) => s.status === "pending").length;
-      const reportData = {
-        period: "Last 30 days",
-        totalProfit: Math.round(stats.totalProfit || 0),
-        totalCO2: Math.round(stats.totalCO2 || 0),
-        pendingShipments: pendingCount,
-        approvedShipments: shipments.filter((s) => s.status === "approved").length,
-        avgDelay: Math.round((stats.avgDelay || 0) * 10) / 10,
-      };
+      const { reportsAPI } = await import("../../api/backendAPI");
+      const response = await reportsAPI.generateWeekly();
       
-      // In a real app, this would send an email. For now, we'll show a preview
-      const reportText = `
-Manager Operations Report
-Period: ${reportData.period}
-
-Key Metrics:
-- Total Profit: ₹${reportData.totalProfit}
-- Total CO₂ Emissions: ${reportData.totalCO2} kg
-- Pending Approvals: ${reportData.pendingShipments}
-- Approved Shipments: ${reportData.approvedShipments}
-- Average Delay: ${reportData.avgDelay} days
-
-Generated: ${new Date().toLocaleString()}
-      `;
-      
-      alert("Email Report Generated!\n\n" + reportText);
-      
-      // TODO: Implement actual email sending via backend
-      // await managerAPI.sendEmailReport(reportData);
+      alert(
+        `Weekly Report Generated and Sent!\n\n` +
+        `- Emails sent: ${response.data.emailsSent}\n` +
+        `- Total recipients: ${response.data.totalRecipients}\n` +
+        `- Report period: ${response.data.reportData.period.start} to ${response.data.reportData.period.end}\n\n` +
+        `Report includes:\n` +
+        `- Total Shipments: ${response.data.reportData.totalShipments}\n` +
+        `- Total Profit: ₹${Math.round(response.data.reportData.totalProfit)}\n` +
+        `- Total CO₂: ${Math.round(response.data.reportData.totalCO2)} kg\n` +
+        `- Pending: ${response.data.reportData.pendingShipments}\n` +
+        `- Approved: ${response.data.reportData.approvedShipments}`
+      );
     } catch (error) {
       console.error("Error generating report:", error);
-      alert("Failed to generate report");
+      alert("Failed to generate report. Please try again.");
     }
   };
+
+  // Extract unique cities from shipments for weather dashboard
+  // NOTE: Must be called before any early returns to comply with Rules of Hooks
+  const weatherCities = useMemo(() => {
+    if (!shipments || shipments.length === 0) {
+      return [];
+    }
+    const cityMap = new Map();
+    shipments.forEach((s) => {
+      if (s.order_city && s.latitude && s.longitude) {
+        const key = `${s.order_city}-${s.latitude}-${s.longitude}`;
+        if (!cityMap.has(key)) {
+          cityMap.set(key, {
+            name: s.order_city,
+            lat: s.latitude,
+            lng: s.longitude,
+            country: s.order_country || "India",
+          });
+        }
+      }
+      if (s.customer_city && s.destCoords?.lat && s.destCoords?.lng) {
+        const key = `${s.customer_city}-${s.destCoords.lat}-${s.destCoords.lng}`;
+        if (!cityMap.has(key)) {
+          cityMap.set(key, {
+            name: s.customer_city,
+            lat: s.destCoords.lat,
+            lng: s.destCoords.lng,
+            country: s.customer_country || "India",
+          });
+        }
+      }
+    });
+    return Array.from(cityMap.values()).slice(0, 10);
+  }, [shipments]);
+
+  const pendingShipments = useMemo(() => {
+    return shipments.filter((s) => s.status === "pending");
+  }, [shipments]);
 
   if (loading) {
     return <div className="text-center py-12">Loading...</div>;
   }
 
-  const pendingShipments = shipments.filter((s) => s.status === "pending");
-
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Manager Dashboard</h1>
-        <p className="text-gray-600 mt-2">Oversee operations and approve shipments</p>
+      <div className="mb-8 flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Manager Dashboard</h1>
+          <p className="text-gray-600 mt-2">Oversee operations and approve shipments</p>
+          <p className="text-sm text-gray-500 mt-1">
+            💡 <strong>Approval Authority:</strong> Managers and Admins can approve shipments. Click "View Details" to override AI recommendations.
+          </p>
+        </div>
+        <button
+          onClick={loadData}
+          className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition"
+        >
+          🔄 Refresh
+        </button>
       </div>
+
+      {/* 3D Weather Dashboard - Show weather for cities in shipments */}
+      {weatherCities.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <WeatherDashboard3D cities={weatherCities} />
+        </motion.div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <motion.div
@@ -162,27 +214,51 @@ Generated: ${new Date().toLocaleString()}
                 <tr key={shipment._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <div className="text-sm font-medium text-gray-900">
-                      {shipment.origin} → {shipment.destination}
+                      {shipment.origin || `${shipment.order_city || 'N/A'}, ${shipment.order_country || ''}`} → {shipment.destination || `${shipment.customer_city || 'N/A'}, ${shipment.customer_country || ''}`}
+                    </div>
+                    {shipment.createdAt && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        Created: {new Date(shipment.createdAt).toLocaleDateString()}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-2">
+                      <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold w-fit">
+                        {shipment.aiRecommendation?.mode || "N/A"}
+                      </span>
+                      {shipment.aiRecommendation?.delay !== undefined && (
+                        <div className="text-xs text-gray-500">
+                          Delay: {Math.round((shipment.aiRecommendation.delay || 0) * 10) / 10} days
+                        </div>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                      {shipment.aiRecommendation?.mode || "N/A"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    ₹{Math.round(shipment.aiRecommendation?.profit || 0)}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {Math.round(shipment.aiRecommendation?.co2 || 0)} kg
+                    <div className="text-sm font-semibold text-green-600">
+                      ₹{Math.round(shipment.aiRecommendation?.profit || 0)}
+                    </div>
                   </td>
                   <td className="px-6 py-4">
-                    <button
-                      onClick={() => handleApprove(shipment._id)}
-                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
-                    >
-                      Approve
-                    </button>
+                    <div className="text-sm font-semibold text-red-600">
+                      {Math.round(shipment.aiRecommendation?.co2 || 0)} kg
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={() => handleApprove(shipment._id)}
+                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm hover:shadow-md"
+                      >
+                        ✓ Approve AI
+                      </button>
+                      <button
+                        onClick={() => navigate(`/shipments/${shipment._id}`)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm hover:shadow-md"
+                      >
+                        View Details
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

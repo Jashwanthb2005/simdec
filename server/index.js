@@ -35,6 +35,8 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
+
+// JSON body parser - standard configuration
 app.use(express.json());
 
 // Rate limiting - more lenient for development
@@ -83,6 +85,12 @@ async function init() {
 
 // Initialize database and routes
 init().then(() => {
+  // Setup scheduler for weekly reports
+  if (mongoConnected && db) {
+    const { setupScheduler } = require("./services/scheduler");
+    setupScheduler(db);
+  }
+
   // Health check
   app.get("/", (_, res) => res.json({ 
     message: "🚀 Sim-to-Dec API running",
@@ -131,9 +139,13 @@ init().then(() => {
   if (mongoConnected && db) {
     const setupShipmentRoutes = require("./routes/shipments");
     const setupAdminRoutes = require("./routes/admin");
+    const setupNotificationRoutes = require("./routes/notifications");
+    const setupReportRoutes = require("./routes/reports");
 
     app.use("/api/shipments", setupShipmentRoutes(db));
     app.use("/api/admin", setupAdminRoutes(db));
+    app.use("/api/notifications", setupNotificationRoutes(db));
+    app.use("/api/reports", setupReportRoutes(db));
     
     console.log("✅ All routes initialized");
   } else {
@@ -148,8 +160,31 @@ init().then(() => {
   });
 });
 
-// Error handling
+// Error handling middleware - must be after all routes
 app.use((err, req, res, next) => {
+  // Handle JSON parse errors (including null/empty body)
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    console.warn('JSON parse error:', err.message);
+    // For null body errors, set empty object and continue to route handler
+    if (err.message && (err.message.includes('null') || err.message.includes('Unexpected token'))) {
+      req.body = {};
+      // Re-route to the original handler (this is a workaround)
+      // Actually, we can't re-route easily, so return a proper error response
+      return res.status(400).json({ 
+        error: 'Invalid request body',
+        message: 'Request body cannot be null. Please send an empty object {} instead.'
+      });
+    }
+    return res.status(400).json({ 
+      error: 'Invalid JSON in request body',
+      message: err.message 
+    });
+  }
+  
+  // Handle other errors
   console.error("Error:", err);
-  res.status(500).json({ error: "Internal server error" });
+  const statusCode = err.status || err.statusCode || 500;
+  res.status(statusCode).json({ 
+    error: err.message || "Internal server error" 
+  });
 });

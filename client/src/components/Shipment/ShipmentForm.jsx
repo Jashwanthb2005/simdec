@@ -69,11 +69,31 @@ export default function ShipmentForm() {
     setLoading(true);
 
     try {
+      console.log("Creating shipment with data:", formData);
       const response = await shipmentAPI.create(formData);
-      navigate(`/shipments/${response.data.shipment._id}`);
+      console.log("Shipment created successfully:", response.data);
+      
+      if (response.data && response.data.shipment) {
+        const shipmentId = response.data.shipment._id;
+        console.log("New shipment ID:", shipmentId);
+        
+        // Show success message and navigate to dashboard with refresh
+        // The dashboard will automatically refresh and show the new shipment
+        navigate("/dashboard", { 
+          state: { 
+            refresh: true, 
+            message: `Shipment created successfully! Route: ${formData.order_city} → ${formData.customer_city}`,
+            newShipmentId: shipmentId
+          } 
+        });
+      } else {
+        console.error("Invalid response structure:", response);
+        throw new Error("Invalid response from server - shipment data missing");
+      }
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to create shipment");
-    } finally {
+      console.error("Create shipment error:", err);
+      console.error("Error response:", err.response?.data);
+      setError(err.response?.data?.error || err.message || "Failed to create shipment. Please check the console for details.");
       setLoading(false);
     }
   };

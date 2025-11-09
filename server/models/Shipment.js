@@ -22,21 +22,82 @@ class Shipment {
   }
 
   async findByUserId(userId, limit = 1000, skip = 0) {
-    return await this.collection
-      .find({ createdBy: new ObjectId(userId) })
+    // Handle both string and ObjectId formats for backward compatibility
+    // MongoDB can store ObjectId references as either ObjectId or string
+    const userIdString = userId instanceof ObjectId ? userId.toString() : String(userId);
+    
+    console.log("findByUserId - querying for userId:", userId, "as string:", userIdString);
+    
+    let query;
+    
+    // If it's a valid ObjectId string, query with both ObjectId and string formats
+    if (ObjectId.isValid(userIdString)) {
+      const objectIdValue = new ObjectId(userIdString);
+      // Query for both ObjectId and string formats using $or
+      query = {
+        $or: [
+          { createdBy: objectIdValue },
+          { createdBy: userIdString }
+        ]
+      };
+      console.log("Using $or query for ObjectId and string formats");
+    } else {
+      // Not a valid ObjectId, just query as string
+      query = { createdBy: userIdString };
+      console.log("Using string-only query");
+    }
+    
+    const results = await this.collection
+      .find(query)
       .sort({ createdAt: -1 })
       .limit(limit)
       .skip(skip)
       .toArray();
+    
+    console.log(`findByUserId - found ${results.length} shipments for user ${userIdString}`);
+    
+    // Debug logging
+    if (results.length > 0) {
+      const first = results[0];
+      console.log("First shipment - createdBy:", first.createdBy, 
+        "type:", typeof first.createdBy,
+        "is ObjectId:", first.createdBy instanceof ObjectId);
+    } else {
+      // Check what format is stored in the database
+      const sample = await this.collection.findOne({});
+      if (sample && sample.createdBy) {
+        console.log("DEBUG: Sample shipment in DB - createdBy:", sample.createdBy,
+          "type:", typeof sample.createdBy,
+          "is ObjectId:", sample.createdBy instanceof ObjectId,
+          "toString:", sample.createdBy.toString());
+        console.log("DEBUG: Query userIdString:", userIdString);
+        console.log("DEBUG: Query objectIdValue:", ObjectId.isValid(userIdString) ? new ObjectId(userIdString).toString() : "N/A");
+      } else {
+        console.log("DEBUG: No shipments found in database at all");
+      }
+    }
+    
+    return results;
   }
 
   async getAll(limit = 100, skip = 0) {
-    return await this.collection
+    const results = await this.collection
       .find({})
       .sort({ createdAt: -1 })
       .limit(limit)
       .skip(skip)
       .toArray();
+    
+    console.log(`Shipment.getAll: Found ${results.length} shipments (limit: ${limit}, skip: ${skip})`);
+    if (results.length > 0) {
+      console.log(`  First shipment: ${results[0]._id}, createdAt: ${results[0].createdAt}, status: ${results[0].status}`);
+    } else {
+      // Check total count
+      const totalCount = await this.collection.countDocuments({});
+      console.log(`  No shipments returned, but total count in DB: ${totalCount}`);
+    }
+    
+    return results;
   }
 
   async update(id, updates) {
@@ -62,28 +123,64 @@ class Shipment {
     return await this.findById(shipmentId);
   }
 
-  async getStats(startDate, endDate) {
+  async getStats(startDate, endDate, companyId = null) {
+    const matchStage = {
+      createdAt: {
+        $gte: startDate,
+        $lte: endDate,
+      },
+    };
+
+    // Add company filter if provided (multi-tenant support)
+    if (companyId) {
+      matchStage.companyId = companyId;
+    }
+
     const pipeline = [
       {
-        $match: {
-          createdAt: {
-            $gte: startDate,
-            $lte: endDate,
-          },
-        },
+        $match: matchStage,
       },
       {
         $group: {
           _id: null,
           totalShipments: { $sum: 1 },
-          totalProfit: { $sum: "$aiRecommendation.profit" },
-          totalCO2: { $sum: "$aiRecommendation.co2" },
-          avgDelay: { $avg: "$aiRecommendation.delay" },
+          totalProfit: { 
+            $sum: { 
+              $ifNull: ["$aiRecommendation.profit", 0] 
+            } 
+          },
+          totalCO2: { 
+            $sum: { 
+              $ifNull: ["$aiRecommendation.co2", 0] 
+            } 
+          },
+          avgDelay: { 
+            $avg: { 
+              $ifNull: ["$aiRecommendation.delay", 0] 
+            } 
+          },
         },
       },
     ];
     const result = await this.collection.aggregate(pipeline).toArray();
-    return result[0] || {};
+    const stats = result[0] || {};
+    
+    // Ensure all fields have default values
+    return {
+      totalShipments: stats.totalShipments || 0,
+      totalProfit: stats.totalProfit || 0,
+      totalCO2: stats.totalCO2 || 0,
+      avgDelay: stats.avgDelay || 0,
+    };
+  }
+
+  async findByCompanyId(companyId, limit = 100, skip = 0) {
+    return await this.collection
+      .find({ companyId })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .skip(skip)
+      .toArray();
   }
 }
 

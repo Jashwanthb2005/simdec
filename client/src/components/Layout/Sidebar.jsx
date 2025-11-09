@@ -8,6 +8,8 @@ export default function Sidebar() {
   const menuItems = [
     { path: "/dashboard", label: "Dashboard", icon: "📊", roles: ["manager", "operator", "analyst", "admin"] },
     { path: "/shipments", label: "Shipments", icon: "📦", roles: ["manager", "operator", "admin"] },
+    { path: "/shipments/create", label: "Create Shipment", icon: "➕", roles: ["operator", "admin"] },
+    { path: "/shipments/bulk-upload", label: "Bulk Upload", icon: "📤", roles: ["operator", "admin"] },
     { path: "/analytics", label: "Analytics", icon: "📈", roles: ["analyst", "manager", "admin"] },
     { path: "/admin", label: "Admin Panel", icon: "⚙️", roles: ["admin"] },
   ].filter((item) => !item.roles || item.roles.includes(user?.role));

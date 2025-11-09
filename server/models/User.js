@@ -47,6 +47,18 @@ class User {
   async getUsersByRole(role) {
     return await this.collection.find({ role }).toArray();
   }
+
+  async getUsersByCompany(companyId) {
+    return await this.collection.find({ companyId }).toArray();
+  }
+
+  async updateCompanyId(userId, companyId) {
+    await this.collection.updateOne(
+      { _id: new ObjectId(userId) },
+      { $set: { companyId } }
+    );
+    return await this.findById(userId);
+  }
 }
 
 module.exports = User;

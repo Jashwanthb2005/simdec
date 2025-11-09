@@ -1,7 +1,7 @@
 import { useAuth } from "../context/AuthContext";
 import ManagerDashboard from "../components/Dashboard/ManagerDashboard";
 import OperatorDashboard from "../components/Dashboard/OperatorDashboard";
-import AnalystDashboard from "../components/Dashboard/AnalystDashboard";
+import AnalystOverview from "../components/Dashboard/AnalystOverview";
 import AdminPanel from "../components/Dashboard/AdminPanel";
 import Navbar from "../components/Layout/Navbar";
 import Sidebar from "../components/Layout/Sidebar";
@@ -16,7 +16,7 @@ export default function Dashboard() {
       case "operator":
         return <OperatorDashboard />;
       case "analyst":
-        return <AnalystDashboard />;
+        return <AnalystOverview />;
       case "admin":
         return <AdminPanel />;
       default:

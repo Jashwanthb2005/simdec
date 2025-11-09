@@ -13,6 +13,10 @@ import ShipmentCreate from "./pages/ShipmentCreate";
 import ShipmentDetail from "./pages/ShipmentDetail";
 import Inference from "./pages/Inference";
 import Results from "./pages/Results";
+import BulkUpload from "./components/Shipment/BulkUpload";
+import AIChatbot from "./components/Chatbot/AIChatbot";
+import Navbar from "./components/Layout/Navbar";
+import Sidebar from "./components/Layout/Sidebar";
 
 function AppContent() {
   const [result, setResult] = useState(() => {
@@ -51,6 +55,7 @@ function AppContent() {
   };
 
   return (
+    <>
     <Routes>
       {/* Public routes */}
       <Route path="/" element={<Homepage />} />
@@ -125,7 +130,27 @@ function AppContent() {
           </ProtectedRoute>
         } 
       />
-    </Routes>
+      <Route 
+        path="/shipments/bulk-upload" 
+        element={
+          <ProtectedRoute allowedRoles={["operator", "admin"]}>
+            <div className="min-h-screen bg-gray-50">
+              <Navbar />
+              <div className="flex">
+                <Sidebar />
+                <main className="flex-1 p-8">
+                  <BulkUpload />
+                </main>
+              </div>
+            </div>
+          </ProtectedRoute>
+        } 
+      />
+      </Routes>
+      
+      {/* AI Chatbot - available on all pages (outside Routes) */}
+      <AIChatbot />
+    </>
   );
 }
 
