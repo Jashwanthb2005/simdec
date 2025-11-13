@@ -23,6 +23,7 @@ app.use(cors({
       "http://localhost:3000",
       "http://127.0.0.1:5173",
       "http://127.0.0.1:5174",
+      "https://sim-dec-client.onrender.com",
     ].filter(Boolean);
     
     if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === "development") {
