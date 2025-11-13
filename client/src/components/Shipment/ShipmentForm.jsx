@@ -30,7 +30,7 @@ export default function ShipmentForm() {
     
     try {
       // Get AI preview
-      const response = await fetch("https://sim-dec-server.onrender.com/api/infer", {
+      const response = await fetch("https://sim-dec-server2.onrender.com/api/infer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
