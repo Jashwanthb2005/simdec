@@ -1,0 +1,271 @@
+================================================================================
+  SIM-TO-DEC LOGISTICS INTELLIGENCE PLATFORM - ARCHITECTURE DIAGRAM
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           USER INTERFACE LAYER                              │
+│                                                                             │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │  React Client (Port 5173)                                           │  │
+│  │  ├── Pages: Homepage, Dashboard, Inference, Analytics, Admin        │  │
+│  │  ├── Components: Charts, Widgets, Forms, Layout                     │  │
+│  │  ├── State: AuthContext, localStorage                               │  │
+│  │  └── API Client: Axios with JWT interceptors                        │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ HTTP/REST + JWT
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           API GATEWAY LAYER                                  │
+│                                                                             │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │  Express Server (Port 5000)                                          │  │
+│  │  ├── Routes: /api/auth, /api/shipments, /api/admin, /api/reports   │  │
+│  │  ├── Middleware: JWT Auth, Role Validation, CORS, Helmet           │  │
+│  │  ├── Services: Weather, Email, Scheduler                            │  │
+│  │  └── Models: User, Shipment, Notification                          │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                    ┌───────────────┴───────────────┐
+                    │                               │
+                    ▼                               ▼
+┌───────────────────────────────┐  ┌──────────────────────────────────────────┐
+│   ML INFERENCE LAYER          │  │         DATA LAYER                       │
+│                               │  │                                          │
+│  ┌─────────────────────────┐ │  │  ┌────────────────────────────────────┐ │
+│  │ FastAPI Service         │ │  │  │ MongoDB (Optional)                 │ │
+│  │ (Port 8000)             │ │  │  │ ├── users                           │ │
+│  │ ├── /infer_live         │ │  │  │ ├── shipments                      │ │
+│  │ ├── /health             │ │  │  │ ├── notifications                   │ │
+│  │ ├── PyTorch Models     │ │  │  │ └── history                        │ │
+│  │ │   ├── Ensemble (3)   │ │  │  └────────────────────────────────────┘ │
+│  │ │   └── Actor Policy   │ │  │                                          │
+│  │ ├── Feature Engineering│ │  │  ┌────────────────────────────────────┐ │
+│  │ └── Inference Engine  │ │  │  │ CSV Cache (api_cache.csv)         │ │
+│  └─────────────────────────┘ │  │  │ Mapbox route cache               │ │
+│                               │  │  └────────────────────────────────────┘ │
+└───────────────────────────────┘  └──────────────────────────────────────────┘
+                    │
+                    │ API Calls
+                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        EXTERNAL SERVICES LAYER                               │
+│                                                                             │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
+│  │  Mapbox API  │  │ Open-Meteo   │  │   EIA API    │  │ OpenStreetMap│ │
+│  │  Geocoding   │  │ Weather Data │  │ Fuel Prices  │  │  Nominatim   │ │
+│  │  Directions  │  │             │  │             │  │  Geocoding    │ │
+│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘ │
+│                                                                             │
+│  ┌──────────────┐                                                          │
+│  │  SMTP Server │                                                          │
+│  │  Email       │                                                          │
+│  └──────────────┘                                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+  DATA FLOW: INFERENCE REQUEST
+================================================================================
+
+1. User submits shipment request (origin, destination, sales)
+   │
+   ▼
+2. Client → Server: POST /api/infer (with JWT token)
+   │
+   ▼
+3. Server validates JWT, extracts user info
+   │
+   ▼
+4. Server → Model Service: POST /infer_live
+   │
+   ▼
+5. Model Service fetches external data:
+   ├── Mapbox API → Route distance & duration
+   ├── Open-Meteo → Weather score
+   └── EIA API → Fuel price index
+   │
+   ▼
+6. Model Service:
+   ├── Loads PyTorch models (Ensemble + Actor)
+   ├── Feature engineering & normalization
+   ├── Monte Carlo simulation (K=3, Samples=8)
+   ├── Evaluates 4 transport modes
+   └── Returns recommendation with metrics
+   │
+   ▼
+7. Server → External APIs:
+   └── OpenStreetMap + Open-Meteo → Weather for cities
+   │
+   ▼
+8. Server → MongoDB: Save shipment with AI recommendation
+   │
+   ▼
+9. Server → Client: Return complete shipment data
+   │
+   ▼
+10. Client displays results in dashboard/charts
+
+
+================================================================================
+  TECHNOLOGY STACK
+================================================================================
+
+FRONTEND:
+  • React 18 + Vite 7
+  • React Router 6
+  • Tailwind CSS 3
+  • Axios 1.6
+  • Recharts 3 (Charts)
+  • Three.js 0.158 (3D Globe)
+  • Mapbox GL 3 (Maps)
+  • Framer Motion 11 (Animations)
+
+BACKEND:
+  • Node.js 18+
+  • Express 5
+  • MongoDB 6 (Driver)
+  • JWT 9 (Authentication)
+  • Bcrypt 2.4 (Password Hashing)
+  • Helmet 7 (Security)
+  • CORS 2.8
+  • Nodemailer 6 (Email)
+
+ML SERVICE:
+  • Python 3.10+
+  • FastAPI 0.115
+  • Uvicorn 0.32
+  • PyTorch 2.5.0
+  • NumPy 1.26
+  • Pandas 2.2
+  • Requests 2.32
+
+
+================================================================================
+  API ENDPOINTS SUMMARY
+================================================================================
+
+AUTHENTICATION:
+  POST   /api/auth/register     - Register new user
+  POST   /api/auth/login        - Login user
+  GET    /api/auth/me           - Get current user (protected)
+
+INFERENCE:
+  POST   /api/infer             - Run ML inference (public)
+
+SHIPMENTS:
+  POST   /api/shipments/create  - Create shipment (operator/admin)
+  GET    /api/shipments/all     - List shipments (role-based)
+  GET    /api/shipments/:id      - Get shipment details
+  POST   /api/shipments/:id/approve - Approve shipment (manager/admin)
+  POST   /api/shipments/:id/feedback - Add feedback
+  GET    /api/shipments/stats/overview - Get statistics (analyst/manager/admin)
+
+ADMIN:
+  GET    /api/admin/users       - List users (admin)
+  PUT    /api/admin/users/:id/role - Update user role (admin)
+  GET    /api/admin/stats       - System statistics (admin)
+  GET    /api/admin/model/status - Model service health (admin)
+
+NOTIFICATIONS:
+  GET    /api/notifications     - Get notifications
+  PUT    /api/notifications/:id/read - Mark as read
+
+REPORTS:
+  GET    /api/reports/data      - Get report data
+
+MODEL SERVICE:
+  POST   /infer_live            - ML inference endpoint
+  GET    /health                - Health check
+
+
+================================================================================
+  USER ROLES & PERMISSIONS
+================================================================================
+
+OPERATOR:
+  ✓ Create shipments
+  ✓ View own shipments
+  ✓ Add feedback
+
+MANAGER:
+  ✓ All operator permissions
+  ✓ Approve/reject shipments
+  ✓ Override AI recommendations
+  ✓ View KPIs and statistics
+
+ANALYST:
+  ✓ View all shipments
+  ✓ View analytics dashboards
+  ✓ Generate reports
+  ✓ View CO₂ tracking
+
+ADMIN:
+  ✓ All permissions
+  ✓ User management
+  ✓ Role assignment
+  ✓ System monitoring
+  ✓ Model service status
+
+
+================================================================================
+  DEPLOYMENT PORTS
+================================================================================
+
+Development:
+  • Client:     http://localhost:5173
+  • Server:    http://localhost:5000
+  • Model:     http://localhost:8000
+  • MongoDB:   mongodb://localhost:27017 (optional)
+
+Production:
+  • Client:    Static hosting (CDN/CloudFront)
+  • Server:    Platform-specific (Render, Heroku, AWS)
+  • Model:     Platform-specific (Render, Railway, AWS)
+  • MongoDB:   MongoDB Atlas or self-hosted
+
+
+================================================================================
+  SECURITY LAYERS
+================================================================================
+
+1. CORS:           Whitelist allowed origins
+2. Rate Limiting:  200 requests/minute per IP (production)
+3. Helmet:        Security HTTP headers
+4. JWT:           Token-based authentication
+5. Bcrypt:        Password hashing (salt rounds)
+6. Role-Based:    Access control by user role
+7. Input Validation: Server-side validation
+
+
+================================================================================
+  CACHING STRATEGY
+================================================================================
+
+• Mapbox API responses cached in: model_service/models/api_cache.csv
+• Cache format: origin, destination, distance_km, duration_hr
+• Cache lookup before API call to reduce external requests
+• Append-only cache (grows over time, manual cleanup recommended)
+
+
+================================================================================
+  ERROR HANDLING & RESILIENCE
+================================================================================
+
+• MongoDB optional: Server works without database
+• API fallbacks: Model service uses simulated data if external APIs fail
+• Graceful degradation: Features disabled if dependencies unavailable
+• Error middleware: Centralized error handling in Express
+• Try-catch blocks: Wrapped around external API calls
+
+
+================================================================================
+  BACKGROUND JOBS
+================================================================================
+
+• Weekly Reports: Scheduler service (node-cron) generates and emails reports
+• Email Notifications: Triggered on shipment creation/approval
+• Notification Preferences: User-configurable email/push notifications
+

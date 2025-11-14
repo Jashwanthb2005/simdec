@@ -11,3 +11,5 @@ orig,dest,distance_km,duration_hr
 "Hyderabad,India","Chennai,India",627.5867,10.776750000000002
 "chennai,India","lucknow,India",1965.959,32.84433333333334
 "lucknow,India","Delhi,India",528.5313000000001,6.8365277777777775
+"hyderabad,India","gandhinagar,India",1210.6078,20.597583333333333
+"hyderabad,India","Delhi,India",1711.2728,26.518972222222224

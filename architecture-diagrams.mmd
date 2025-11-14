@@ -1,0 +1,55 @@
+%% Sim-to-Dec Logistics Intelligence Platform - Mermaid Diagrams
+%% This file contains individual Mermaid diagrams that can be rendered separately
+%% Copy each diagram section to mermaid.live or use in Mermaid-compatible tools
+
+%% ============================================================================
+%% Diagram 1: High-Level System Architecture
+%% ============================================================================
+
+graph TB
+    subgraph "Client Layer"
+        A[React Client<br/>Port 5173<br/>Vite + React 18]
+    end
+    
+    subgraph "API Gateway Layer"
+        B[Express Server<br/>Port 5000<br/>Node.js + Express]
+    end
+    
+    subgraph "ML Inference Layer"
+        C[FastAPI Service<br/>Port 8000<br/>Python + PyTorch]
+    end
+    
+    subgraph "Data Layer"
+        D[(MongoDB<br/>Optional<br/>Port 27017)]
+        E[CSV Cache<br/>api_cache.csv]
+    end
+    
+    subgraph "External Services"
+        F[Mapbox API<br/>Geocoding & Directions]
+        G[Open-Meteo API<br/>Weather Data]
+        H[EIA API<br/>Fuel Prices]
+        I[OpenStreetMap<br/>Nominatim]
+        J[SMTP Server<br/>Email Notifications]
+    end
+    
+    A -->|HTTP/REST<br/>JWT Auth| B
+    B -->|HTTP/REST<br/>Proxy| C
+    B -->|MongoDB Driver| D
+    C -->|Read/Write| E
+    C -->|API Calls| F
+    C -->|API Calls| G
+    C -->|API Calls| H
+    B -->|API Calls| I
+    B -->|SMTP| J
+    
+    style A fill:#61dafb
+    style B fill:#68a063
+    style C fill:#3776ab
+    style D fill:#47a248
+    style E fill:#ffa500
+    style F fill:#4264fb
+    style G fill:#00a3e0
+    style H fill:#003366
+    style I fill:#7ecc49
+    style J fill:#ea4335
+

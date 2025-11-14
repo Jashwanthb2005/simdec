@@ -24,7 +24,7 @@ export default function AnalystDashboard() {
     try {
       setError(null);
       console.log("🔄 Loading analytics data...");
-      console.log("📡 API URL:", import.meta.env.VITE_API_URL || "https://sim-dec-server2.onrender.com");
+      console.log("📡 API URL:", import.meta.env.VITE_API_URL || "http://localhost:5000");
       console.log("🔑 Token:", localStorage.getItem("token") ? "Present" : "Missing");
       
       // Load stats first to get the date range, then load shipments

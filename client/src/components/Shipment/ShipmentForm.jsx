@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { shipmentAPI } from "../../api/backendAPI";
+import { shipmentAPI, inferenceAPI } from "../../api/backendAPI";
 import { motion } from "framer-motion";
 
 export default function ShipmentForm() {
@@ -29,33 +29,27 @@ export default function ShipmentForm() {
     setLoading(true);
     
     try {
-      // Get AI preview
-      const response = await fetch("https://sim-dec-server2.onrender.com/api/infer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          order_country: formData.order_country || "India",
-          customer_country: formData.customer_country || "India",
-        }),
+      // Get AI preview using inferenceAPI
+      const response = await inferenceAPI.predict({
+        ...formData,
+        order_country: formData.order_country || "India",
+        customer_country: formData.customer_country || "India",
       });
       
-      if (response.ok) {
-        const data = await response.json();
-        const bestMode = data.per_mode_analysis?.find(
-          (m) => m.mode === data.best_mode_by_score
-        );
-        
-        setPreviewRecommendation({
-          mode: data.best_mode_by_score,
-          score: data.best_score,
-          profit: bestMode?.pred_profit || 0,
-          co2: bestMode?.pred_co2 || 0,
-          delay: bestMode?.pred_delay || 0,
-          allModes: data.per_mode_analysis,
-        });
-        setShowPreview(true);
-      }
+      const data = response.data;
+      const bestMode = data.per_mode_analysis?.find(
+        (m) => m.mode === data.best_mode_by_score
+      );
+      
+      setPreviewRecommendation({
+        mode: data.best_mode_by_score,
+        score: data.best_score,
+        profit: bestMode?.pred_profit || 0,
+        co2: bestMode?.pred_co2 || 0,
+        delay: bestMode?.pred_delay || 0,
+        allModes: data.per_mode_analysis,
+      });
+      setShowPreview(true);
     } catch (err) {
       setError("Failed to get AI preview. You can still create the shipment.");
     } finally {

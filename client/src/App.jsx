@@ -2,6 +2,7 @@ import { useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { inferenceAPI } from "./api/backendAPI";
 import Homepage from "./pages/Homepage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -26,19 +27,12 @@ function AppContent() {
 
   const runInference = async (form) => {
     try {
-      const response = await fetch("https://sim-dec-server2.onrender.com/api/infer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          order_country: "India",
-          customer_country: "India",
-        }),
+      const response = await inferenceAPI.predict({
+        ...form,
+        order_country: "India",
+        customer_country: "India",
       });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
+      const data = response.data;
       setResult(data);
       localStorage.setItem('inferenceResult', JSON.stringify(data));
       return data;
